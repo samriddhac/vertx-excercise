@@ -6,6 +6,7 @@ import org.slf4j.LoggerFactory;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.DeploymentOptions;
 import io.vertx.core.Future;
+import io.vertx.starter.database.DatabaseVerticle;
 
 public class MainVerticle extends AbstractVerticle {
 	
@@ -26,27 +27,33 @@ public class MainVerticle extends AbstractVerticle {
 	@Override
 	public void start(Future<Void> startFuture) throws Exception {
 		Future<String> dbVerticleDeployment = Future.future();
-		vertx.deployVerticle(new DatabaseVerticle(), dbVerticleDeployment.completer());
-		
-		dbVerticleDeployment.compose((id)->{
-			Future<String> httpVerticleDeployment = Future.future();
-			vertx.deployVerticle("io.vertx.starter.HttpServerVerticle", new DeploymentOptions().setInstances(2),
-					httpVerticleDeployment.completer());
-			return httpVerticleDeployment;
-		}).setHandler((ar) -> {
-			/**
-			 * ar is of type AsyncResult<Void>. AsyncResult<T> is used to pass the result of an 
-			 * asynchronous processing and may either yield a value of type T on success 
-			 * or a failure exception if the processing failed.
-			 */
-			if(ar.succeeded()) {
-				LOGGER.info("Verticles deployed");
-				startFuture.complete();
-			}
-			else {
-				startFuture.fail(ar.cause());
-			}
-		});
+		try {
+			LOGGER.info("Verticles deployment starts");
+			vertx.deployVerticle(new DatabaseVerticle(), dbVerticleDeployment.completer());
+			
+			dbVerticleDeployment.compose((id)->{
+				Future<String> httpVerticleDeployment = Future.future();
+				vertx.deployVerticle("io.vertx.starter.http.HttpServerVerticle", new DeploymentOptions().setInstances(2),
+						httpVerticleDeployment.completer());
+				return httpVerticleDeployment;
+			}).setHandler((ar) -> {
+				/**
+				 * ar is of type AsyncResult<Void>. AsyncResult<T> is used to pass the result of an 
+				 * asynchronous processing and may either yield a value of type T on success 
+				 * or a failure exception if the processing failed.
+				 */
+				if(ar.succeeded()) {
+					LOGGER.info("Verticles deployed");
+					startFuture.complete();
+				}
+				else {
+					startFuture.fail(ar.cause());
+				}
+			});
+		}
+		catch (Exception e) {
+			LOGGER.error("Exception ", e);
+		}
 	}
 
 	@Override
